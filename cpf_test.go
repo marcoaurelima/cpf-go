@@ -87,4 +87,15 @@ func Test_CPF(t *testing.T) {
 		}
 	})
 
+	t.Run("Geração de CPF aleatório", func(t *testing.T) {
+		for i := 0; i < 10; i++ {
+			CPF, err := NewRandom()
+			if err != nil {
+				t.Errorf("Erro ao gerar CPF aleatório: %v", err)
+			}
+			if !CPF.IsValid() {
+				t.Errorf("CPF gerado aleatoriamente deveria ser válido, mas foi considerado inválido")
+			}
+		}
+	})
 }

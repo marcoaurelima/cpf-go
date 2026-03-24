@@ -1,6 +1,10 @@
 package cpf
 
-var pesos = [10]int{11, 10, 9, 8, 7, 6, 5, 4, 3, 2}
+import (
+	"crypto/rand"
+)
+
+var weights = [10]int{11, 10, 9, 8, 7, 6, 5, 4, 3, 2}
 
 type CPF struct {
 	digits [11]byte
@@ -52,32 +56,69 @@ func (c CPF) IsValid() bool {
 
 // isValid realiza a validação do CPF, verificando se os dígitos verificadores estão corretos
 func (c CPF) isValid() error {
-	soma1 := 0
-	soma2 := 0
+	// Cálculo dos dígitos verificadores
+	dv1, dv2 := calculateDV([9]byte(c.digits[:9]))
 
-	for i := 0; i < len(c.digits[:9]); i++ {
-		soma1 += int(c.digits[i]-'0') * pesos[i+1]
-		soma2 += int(c.digits[i]-'0') * pesos[i]
+	// Comparação dos dígitos verificadores calculados com os fornecidos
+	if (dv1 != int(c.digits[9]-'0')) || (dv2 != int(c.digits[10]-'0')) {
+		return ErrorCPFInvalido
+	}
+
+	return nil
+}
+
+// calculateDV é uma função auxiliar que calcula os dígitos verificadores do CPF com base nos primeiros 9 dígitos
+func calculateDV(base [9]byte) (dv1, dv2 int) {
+	sum1 := 0
+	sum2 := 0
+
+	for i := 0; i < len(base); i++ {
+		sum1 += int(base[i]-'0') * weights[i+1]
+		sum2 += int(base[i]-'0') * weights[i]
 	}
 
 	// Cálculo do primeiro dígito verificador
-	dv1 := (soma1 * 10) % 11
+	dv1 = (sum1 * 10) % 11
 	if dv1 == 10 {
 		dv1 = 0
 	}
 
 	// Cálculo do segundo dígito verificador
-	soma2 += (dv1) * pesos[len(c.digits[:9])]
-	dv2 := (soma2 * 10) % 11
+	sum2 += (dv1) * weights[len(base)]
+	dv2 = (sum2 * 10) % 11
 	if dv2 == 10 {
 		dv2 = 0
 	}
 
-	// Comparação dos dígitos verificadores calculados com os fornecidos
-	cmp := (dv1 == int(c.digits[9]-'0') && dv2 == int(c.digits[10]-'0'))
-	if !cmp {
-		return ErrorCPFInvalido
+	return
+}
+
+// NewRandom é uma função que gera um CPF aleatório válido.
+func NewRandom() (CPF, error) {
+	limit := 1000 // Limite de tentativas para evitar loops infinitos
+
+	var randomDigits [11]byte
+	for i := 0; i < limit; i++ {
+		for i := range randomDigits {
+			d := [1]byte{}
+			rand.Read(d[:])
+			randomDigits[i] = (d[0] % 10) + '0'
+		}
+
+		// Calcular os dígitos verificadores para o CPF gerado
+		dv1, dv2 := calculateDV([9]byte(randomDigits[:9]))
+		randomDigits[9] = byte(dv1) + '0'
+		randomDigits[10] = byte(dv2) + '0'
+
+		cpf, err := New(string(randomDigits[:]))
+		if err != nil {
+			continue // Se ocorrer um erro, tente gerar outro CPF
+		}
+
+		if cpf.IsValid() {
+			return cpf, nil
+		}
 	}
 
-	return nil
+	return CPF{}, ErrorGerarCPFAleatorio
 }
